@@ -1,0 +1,5 @@
+{
+  "workspace": "my_workspace",
+  "store_name": "città_principali_italia",
+  "data_path": "italia/citta_principali.shp"
+}
