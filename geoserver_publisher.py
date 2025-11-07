@@ -172,38 +172,35 @@ def publish_coveragestore(workspace, store_name, publisher_local_path_to_read):
         return False
 
 def upload_style(workspace, style_name, sld_body):
-    """Uploads or updates a style (SLD) to GeoServer."""
-    logging.info(f"Uploading style '{style_name}' to workspace '{workspace}'...")
-    
-    headers_sld = {"Content-type": "application/vnd.ogc.sld+xml", "Accept": "application/json"}
-    
-    # 1. Try to CREATE the style using POST
-    # This is the correct endpoint for creating a style by uploading its body
-    post_url = f"{base_rest_url}/workspaces/{workspace}/styles?name={style_name}"
-    
-    post_response = requests.post(post_url, data=sld_body.encode('utf-8'), auth=auth, headers=headers_sld)
-    
-    if post_response.status_code == 201:
-        logging.info(f"Style '{style_name}' created successfully via POST.")
-        return True
+    """Uploads a style (SLD) to GeoServer, but only if it doesn't already exist."""
+    logging.info(f"Checking for style '{style_name}' in workspace '{workspace}'...")
 
-    # 2. If it already exists (409 Conflict), try to UPDATE it using PUT
-    if post_response.status_code == 409:
-        logging.warning(f"Style '{style_name}' already exists. Attempting to update it via PUT...")
+    # Check if the style already exists
+    check_url = f"{base_rest_url}/workspaces/{workspace}/styles/{style_name}.json"
+    check_response = requests.get(check_url, auth=auth, headers=headers_json)
+
+    if check_response.status_code == 200:
+        logging.info(f"Style '{style_name}' already exists. Skipping upload.")
+        return True
+    
+    # If not found (404), then proceed to create it
+    if check_response.status_code == 404:
+        logging.info(f"Style '{style_name}' not found. Proceeding with creation...")
         
-        put_url = f"{base_rest_url}/workspaces/{workspace}/styles/{style_name}"
-        put_response = requests.put(put_url, data=sld_body.encode('utf-8'), auth=auth, headers=headers_sld)
+        post_url = f"{base_rest_url}/workspaces/{workspace}/styles?name={style_name}"
+        headers_sld = {"Content-type": "application/vnd.ogc.sld+xml", "Accept": "application/json"}
         
-        if put_response.status_code == 200:
-            logging.info(f"Style '{style_name}' updated successfully via PUT.")
+        post_response = requests.post(post_url, data=sld_body.encode('utf-8'), auth=auth, headers=headers_sld)
+        
+        if post_response.status_code == 201:
+            logging.info(f"Style '{style_name}' created successfully.")
             return True
         else:
-            # PUT failed after POST failed
-            logging.error(f"Failed to update existing style '{style_name}'. Status: {put_response.status_code}, Text: {put_response.text}")
+            logging.error(f"Failed to create style '{style_name}'. Status: {post_response.status_code}, Text: {post_response.text}")
             return False
-    
-    # 3. If POST failed for another reason (like the 400 we saw)
-    logging.error(f"Failed to create style '{style_name}' via POST. Status: {post_response.status_code}, Text: {post_response.text}")
+            
+    # Handle other unexpected status codes from the check
+    logging.error(f"Error checking for style '{style_name}'. Status: {check_response.status_code}, Text: {check_response.text}")
     return False
 
 def assign_style_to_layer(workspace, layer_name, style_name):

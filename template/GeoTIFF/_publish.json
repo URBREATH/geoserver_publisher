@@ -1,7 +1,7 @@
 {
   "workspace": "Tallinn_3-30-300",
-  "store_name": "scores-3-30-300-test-2",
-  "data_path": "Tallinn/3-30-300/2025-06-25/scores-3-30-300.tif",
+  "store_name": "scores-3-30-300-test-roule-3",
+  "data_path": "Tallinn/3-30-300/2025-06-25/3/visible_tree_count.tif",
   "style_name": "style_3",
   "sld_path": "Tallinn/3-30-300/2025-06-25/style_3.sld"
 }
