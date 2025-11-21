@@ -171,17 +171,29 @@ def publish_coveragestore(workspace, store_name, publisher_local_path_to_read):
         logging.error(f"Failed to create/update CoverageStore '{store_name}'. Status: {response.status_code}, Text: {response.text}")
         return False
 
-def upload_style(workspace, style_name, sld_body):
+def upload_style(workspace, style_name, sld_body, style_override_roule=False):
     """Uploads a style (SLD) to GeoServer, but only if it doesn't already exist."""
     logging.info(f"Checking for style '{style_name}' in workspace '{workspace}'...")
 
-    # Check if the style already exists
+    # Check if the style already exists https://geoserver-dev.urbreath.tech/geoserver/rest//workspaces/Tallinn_3-30-300/styles/style_3.json
     check_url = f"{base_rest_url}/workspaces/{workspace}/styles/{style_name}.json"
     check_response = requests.get(check_url, auth=auth, headers=headers_json)
 
-    if check_response.status_code == 200:
-        logging.info(f"Style '{style_name}' already exists. Skipping upload.")
-        return True
+    if check_response.status_code == 200: # Style exists
+        if not style_override_roule:
+            logging.info(f"Style '{style_name}' already exists and override is disabled. Skipping upload.")
+            return True
+        else:
+            logging.info(f"Style '{style_name}' already exists and override is enabled. Deleting it first...")
+            delete_url = f"{base_rest_url}/workspaces/{workspace}/styles/{style_name}"
+            delete_response = requests.delete(delete_url, auth=auth)
+            if delete_response.status_code == 200:
+                logging.info(f"Successfully deleted existing style '{style_name}'.")
+                # Now we let the code fall through to the creation part
+            else:
+                logging.error(f"Failed to delete existing style '{style_name}'. Status: {delete_response.status_code}, Text: {delete_response.text}")
+                return False
+
     
     # If not found (404), then proceed to create it
     if check_response.status_code == 404:
@@ -247,11 +259,17 @@ def run_publish_cycle():
             response.close()
             response.release_conn()
             
+            # Extract required and optional fields from the config
             workspace = config['workspace']
             store_name = config['store_name']
             data_path_rel = config['data_path']
             style_name = config.get('style_name')
             sld_path_rel = config.get('sld_path')
+            style_override_roule = config.get('override_style')
+
+            if style_override_roule is None:
+                style_override_roule = False
+            
 
             # --- MODIFICATION START ---
             # 1. Ensure workspace exists before doing anything else
@@ -303,7 +321,7 @@ def run_publish_cycle():
                             with open(sld_path_local_publisher, 'r', encoding='utf-8') as f:
                                 sld_body = f.read()
                             
-                            style_uploaded = upload_style(workspace, style_name, sld_body)
+                            style_uploaded = upload_style(workspace, style_name, sld_body, style_override_roule)
                             
                             if style_uploaded:
                                 if not assign_style_to_layer(workspace, layer_name_for_style, style_name):

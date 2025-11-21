@@ -3,5 +3,6 @@
   "store_name": "scores-3-30-300-test-roule-3",
   "data_path": "Tallinn/3-30-300/2025-06-25/3/visible_tree_count.tif",
   "style_name": "style_3",
+  "override_style": false,
   "sld_path": "Tallinn/3-30-300/2025-06-25/style_3.sld"
 }
