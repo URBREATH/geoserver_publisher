@@ -28,6 +28,9 @@ MINIO_SECRET_KEY = os.environ['MINIO_SECRET_KEY']
 MINIO_BUCKET = os.environ['MINIO_BUCKET']
 MINIO_SECURE = os.environ.get('MINIO_SECURE', 'false').lower() == 'true'
 
+IDRA_URL = os.environ.get('IDRA_URL') # e.g., http://idra-broker:8080
+GEOSERVER_PUBLIC_URL = os.environ.get('GEOSERVER_PUBLIC_URL', GEOSERVER_URL) # Public URL for download links
+
 # --- Constants ---
 PUBLISH_INTERVAL_SECONDS = 300
 CONFIG_FILE_NAME = "_publish.json"
@@ -238,6 +241,80 @@ def assign_style_to_layer(workspace, layer_name, style_name):
         logging.error(f"Failed to assign style to layer '{layer_name}'. Status: {response.status_code}, Text: {response.text}")
         return False
 
+def publish_to_idra(workspace, layer_name, description, layer_id, style_name=None):
+    """Publishes metadata to the IDRA NGSI-LD Broker."""
+    if not IDRA_URL:
+        logging.warning("IDRA_URL is not set. Skipping publication to catalogue.")
+        return True # Return True to not block the workflow
+
+    logging.info(f"Attempting to publish metadata for layer '{layer_name}' to IDRA catalogue.")
+
+    # 1. Publish Distribution (how to access the data)
+    distribution_url = f"{IDRA_URL}/api/distributiondcatap"
+    
+    # Calculate BBOX for WMS URL
+    bbox_str = "-180.0,-90.0,180.0,90.0"
+    try:
+        layer_url = f"{base_rest_url}/layers/{workspace}:{layer_name}.json"
+        resp_layer = requests.get(layer_url, auth=auth, headers=headers_json)
+        if resp_layer.status_code == 200:
+            resource_href = resp_layer.json()['layer']['resource']['href']
+            resp_res = requests.get(resource_href, auth=auth, headers=headers_json)
+            if resp_res.status_code == 200:
+                res_data = resp_res.json()
+                resource = res_data.get('featureType') or res_data.get('coverage')
+                if resource and 'latLonBoundingBox' in resource:
+                    bb = resource['latLonBoundingBox']
+                    bbox_str = f"{bb['minx']},{bb['miny']},{bb['maxx']},{bb['maxy']}"
+    except Exception as e:
+        logging.warning(f"Could not fetch BBOX for layer '{layer_name}': {e}")
+
+    style_param = style_name if style_name else ""
+    download_url = (f"{GEOSERVER_PUBLIC_URL}/{workspace}/wms?service=WMS&version=1.1.1"
+                    f"&request=GetMap&layers={workspace}:{layer_name}&styles={style_param}"
+                    f"&bbox={bbox_str}&width=768&height=330&srs=EPSG:4326&format=image/png")
+
+    distribution_body = {
+        "id": layer_id,
+        "title": layer_name,
+        "description": description,
+        "downloadURL": download_url,
+        "format": "image/png"
+    }
+
+    try:
+        response_dist = requests.post(distribution_url, json=distribution_body)
+        # We log but don't fail hard on this, as the Dataset is the main entity
+        if response_dist.status_code in [200, 201, 204]:
+             logging.info(f"IDRA Distribution for '{layer_id}' created/updated successfully. Status: {response_dist.status_code}")
+        else:
+             logging.warning(f"Failed to create IDRA Distribution for '{layer_id}'. Status: {response_dist.status_code}, Text: {response_dist.text}")
+    except requests.RequestException as e:
+        logging.error(f"Error calling IDRA for distribution creation: {e}")
+        # Continue to dataset creation anyway, as it's the primary record
+
+    # 2. Publish Dataset (the metadata record)
+    dataset_url = f"{IDRA_URL}/api/dataset"
+    dataset_id = f"{workspace}:{layer_id}"
+    dataset_body = {
+        "id": dataset_id,
+        "title": layer_name,
+        "description": description,
+        "datasetDescription": [description],
+        "datasetDistribution": [layer_id] # Link to the distribution
+    }
+
+    try:
+        response_dataset = requests.post(dataset_url, json=dataset_body)
+        if response_dataset.status_code in [200, 201, 204]:
+            logging.info(f"IDRA Dataset '{dataset_id}' published successfully. Status: {response_dataset.status_code}")
+            return True
+        logging.error(f"Failed to publish IDRA Dataset '{dataset_id}'. Status: {response_dataset.status_code}, Text: {response_dataset.text}")
+        return False
+    except requests.RequestException as e:
+        logging.error(f"Fatal error calling IDRA for dataset creation: {e}")
+        return False
+
 def run_publish_cycle():
     """Runs a single scan and publish cycle."""
     logging.info("Starting new publish cycle (scanning MinIO)...")
@@ -265,12 +342,10 @@ def run_publish_cycle():
             data_path_rel = config['data_path']
             style_name = config.get('style_name')
             sld_path_rel = config.get('sld_path')
-            style_override_roule = config.get('override_style')
-
-            if style_override_roule is None:
-                style_override_roule = False
-            
-
+            style_override_roule = config.get('override_style', False)
+            write_on_catalogue = config.get('write_on_catalogue', False)
+            description = config.get('description', f"Data layer {store_name}")
+            layer_id = config.get('id', store_name) # Use 'id' from config or default to store_name
             # --- MODIFICATION START ---
             # 1. Ensure workspace exists before doing anything else
             if not ensure_workspace_exists(workspace):
@@ -333,18 +408,28 @@ def run_publish_cycle():
                             logging.error(f"An error occurred during style processing: {e}", exc_info=True)
                             style_op_success = False
                 
-                # 5. Only rename if BOTH data and style (if attempted) were successful
-                if style_op_success:
+                # 5. Publish to IDRA catalogue if requested and previous steps were successful
+                idra_op_success = True
+                if style_op_success and write_on_catalogue:
+                    idra_op_success = publish_to_idra(workspace, layer_name_for_style, description, layer_id, style_name)
+
+                # 6. Only rename if ALL requested operations were successful
+                if style_op_success and idra_op_success:
                     processed_key = config_key.replace(CONFIG_FILE_NAME, PROCESSED_FILE_NAME)
                     source = CopySource(MINIO_BUCKET, config_key)
                     
                     minio_client.copy_object(MINIO_BUCKET, processed_key, source)
                     minio_client.remove_object(MINIO_BUCKET, config_key)
                     
-                    logging.info(f"Successfully processed and renamed '{config_key}' to '{processed_key}' in MinIO.")
+                    logging.info(f"Successfully processed all steps for '{config_key}' and renamed to '{processed_key}' in MinIO.")
                     success_count += 1
                 else:
-                    logging.error(f"Data for '{config_key}' was published, but style operation failed. File will NOT be renamed and will be retried.")
+                    error_msg = f"Processing for '{config_key}' failed at a final step and will be retried. "
+                    if not style_op_success:
+                        error_msg += "Reason: Style operation failed. "
+                    if not idra_op_success:
+                        error_msg += "Reason: IDRA catalogue publication failed."
+                    logging.error(error_msg)
 
         except json.JSONDecodeError:
             logging.error(f"Error decoding JSON from '{config_key}' in MinIO.")
