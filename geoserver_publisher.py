@@ -241,7 +241,7 @@ def assign_style_to_layer(workspace, layer_name, style_name):
         logging.error(f"Failed to assign style to layer '{layer_name}'. Status: {response.status_code}, Text: {response.text}")
         return False
 
-def publish_to_idra(workspace, layer_name, description, layer_id, style_name=None):
+def publish_to_idra(workspace, layer_name, description, layer_id, city, date_val, kpi_type, data_file_name, sld_file_name=None, style_name=None):
     """Publishes metadata to the IDRA NGSI-LD Broker."""
     if not IDRA_URL:
         logging.warning("IDRA_URL is not set. Skipping publication to catalogue.")
@@ -249,6 +249,57 @@ def publish_to_idra(workspace, layer_name, description, layer_id, style_name=Non
 
     logging.info(f"Attempting to publish metadata for layer '{layer_name}' to IDRA catalogue.")
 
+    # Load templates
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'distribution_template.json')
+    templates = []
+    if os.path.exists(template_path):
+        try:
+            with open(template_path, 'r') as f:
+                templates = json.load(f)
+            if not isinstance(templates, list):
+                templates = [templates]
+        except Exception as e:
+            logging.error(f"Error loading distribution_template.json: {e}")
+
+    def find_template_in_json(filename):
+        """Searches for a matching template in the loaded JSON list."""
+        if not filename: return None
+        
+        filename_norm = filename.lower().strip()
+        
+        for t in templates:
+            # Get the pattern from the template using the correct key 'File name'
+            tmpl_pattern = t.get('File name')
+            if not tmpl_pattern: continue
+            
+            # Normalize the template pattern
+            # 1. Remove known placeholders
+            pattern_norm = tmpl_pattern.replace('[City name]', '').replace('[dd-mm-yyyy]', '')
+            # 2. Remove extra whitespace
+            pattern_norm = " ".join(pattern_norm.split())
+            # 3. Fix space before extension (e.g. " .tif" -> ".tif")
+            pattern_norm = pattern_norm.replace(' .', '.')
+            # 4. Lowercase
+            pattern_norm = pattern_norm.lower()
+            
+            # Check for match (equality or containment for robustness)
+            if pattern_norm == filename_norm:
+                return t
+            
+            # Fallback: Check containment but ensure extensions match
+            if (pattern_norm in filename_norm or filename_norm in pattern_norm):
+                 ext_f = os.path.splitext(filename_norm)[1]
+                 ext_p = os.path.splitext(pattern_norm)[1]
+                 if ext_f == ext_p and ext_f:
+                     return t
+                     
+        return None
+
+    def replace_placeholders(text):
+        if not isinstance(text, str): return text
+        return text.replace("{city}", city).replace("{date}", date_val).replace("{layer_name}", layer_name)
+
+    distribution_ids = []
     # 1. Publish Distribution (how to access the data)
     distribution_url = f"{IDRA_URL}/api/distributiondcatap"
     
@@ -274,26 +325,73 @@ def publish_to_idra(workspace, layer_name, description, layer_id, style_name=Non
                     f"&request=GetMap&layers={workspace}:{layer_name}&styles={style_param}"
                     f"&bbox={bbox_str}&width=768&height=330&srs=EPSG:4326&format=image/png")
 
+    # Prepare default values
+    dist_description = description
+    dist_format = "image/png"
+    dist_license = None
+
+    # Apply template for Data File
+    data_tmpl = find_template_in_json(data_file_name)
+    if data_tmpl:
+        logging.info(f"Found matching template for '{data_file_name}'. KPI: {data_tmpl.get('KPI')}")
+        if 'Description' in data_tmpl:
+            dist_description = replace_placeholders(data_tmpl['Description'])
+        if 'Format' in data_tmpl:
+            dist_format = data_tmpl['Format']
+        if 'License' in data_tmpl:
+            dist_license = data_tmpl['License']
+
     distribution_body = {
         "id": layer_id,
         "title": layer_name,
-        "description": description,
+        "description": dist_description,
         "downloadURL": download_url,
-        "format": "image/png"
+        "format": dist_format
     }
+
+    if dist_license:
+        distribution_body["license"] = dist_license
 
     try:
         response_dist = requests.post(distribution_url, json=distribution_body)
         # We log but don't fail hard on this, as the Dataset is the main entity
         if response_dist.status_code in [200, 201, 204]:
              logging.info(f"IDRA Distribution for '{layer_id}' created/updated successfully. Status: {response_dist.status_code}")
+             distribution_ids.append(layer_id)
         else:
              logging.warning(f"Failed to create IDRA Distribution for '{layer_id}'. Status: {response_dist.status_code}, Text: {response_dist.text}")
     except requests.RequestException as e:
         logging.error(f"Error calling IDRA for distribution creation: {e}")
         # Continue to dataset creation anyway, as it's the primary record
 
-    # 2. Publish Dataset (the metadata record)
+    # 2. Publish SLD Distribution (if applicable)
+    if sld_file_name and style_name:
+        sld_tmpl = find_template_in_json(sld_file_name)
+        if sld_tmpl:
+            logging.info(f"Found matching template for '{sld_file_name}'. KPI: {sld_tmpl.get('KPI')}")
+            sld_dist_id = f"{layer_id}_sld"
+            sld_url = f"{GEOSERVER_PUBLIC_URL}/workspaces/{workspace}/styles/{style_name}.sld"
+            
+            sld_body = {
+                "id": sld_dist_id,
+                "title": f"Style for {layer_name}",
+                "description": replace_placeholders(sld_tmpl.get('Description', f"Style for {layer_name}")),
+                "downloadURL": sld_url,
+                "format": sld_tmpl.get('Format', "application/vnd.ogc.sld+xml"),
+                "license": sld_tmpl.get('License', "Unknown")
+            }
+            
+            try:
+                resp_sld = requests.post(distribution_url, json=sld_body)
+                if resp_sld.status_code in [200, 201, 204]:
+                    logging.info(f"IDRA SLD Distribution '{sld_dist_id}' created.")
+                    distribution_ids.append(sld_dist_id)
+                else:
+                    logging.warning(f"Failed to create IDRA SLD Distribution '{sld_dist_id}'. Status: {resp_sld.status_code}, Text: {resp_sld.text}")
+            except Exception as e:
+                logging.error(f"Error creating SLD distribution: {e}")
+
+    # 3. Publish Dataset (the metadata record)
     dataset_url = f"{IDRA_URL}/api/dataset"
     dataset_id = f"{workspace}:{layer_id}"
     dataset_body = {
@@ -301,7 +399,7 @@ def publish_to_idra(workspace, layer_name, description, layer_id, style_name=Non
         "title": layer_name,
         "description": description,
         "datasetDescription": [description],
-        "datasetDistribution": [layer_id] # Link to the distribution
+        "datasetDistribution": distribution_ids # Link to the distributions
     }
 
     try:
@@ -346,6 +444,13 @@ def run_publish_cycle():
             write_on_catalogue = config.get('write_on_catalogue', False)
             description = config.get('description', f"Data layer {store_name}")
             layer_id = config.get('id', store_name) # Use 'id' from config or default to store_name
+            kpi_type = config.get('type')
+            
+            # Extract City and Date from MinIO path
+            path_parts = config_key.split('/')
+            city_name = path_parts[0] if len(path_parts) > 0 else "Unknown"
+            date_val = path_parts[1] if len(path_parts) > 1 else "Unknown"
+            
             # --- MODIFICATION START ---
             # 1. Ensure workspace exists before doing anything else
             if not ensure_workspace_exists(workspace):
@@ -372,7 +477,12 @@ def run_publish_cycle():
                     continue
                 published = publish_datastore(workspace, store_name, data_path_for_geoserver)
                 layer_name_for_style = os.path.splitext(os.path.basename(data_path_rel))[0]
-
+            elif data_path_rel.lower().endswith('.geojson'):
+                data_path_for_geoserver = get_geoserver_path(data_path_local_publisher)
+                if not data_path_for_geoserver:
+                    continue
+                published = publish_datastore(workspace, store_name, data_path_for_geoserver)
+                layer_name_for_style = store_name
             elif data_path_rel.lower().endswith(('.tif', '.tiff', '.gtiff')):
                 published = publish_coveragestore(workspace, store_name, data_path_local_publisher)
                 layer_name_for_style = store_name
@@ -411,7 +521,10 @@ def run_publish_cycle():
                 # 5. Publish to IDRA catalogue if requested and previous steps were successful
                 idra_op_success = True
                 if style_op_success and write_on_catalogue:
-                    idra_op_success = publish_to_idra(workspace, layer_name_for_style, description, layer_id, style_name)
+                    data_file_name = os.path.basename(data_path_rel)
+                    sld_file_name = os.path.basename(sld_path_rel) if sld_path_rel else None
+                    
+                    idra_op_success = publish_to_idra(workspace, layer_name_for_style, description, layer_id, city_name, date_val, kpi_type, data_file_name, sld_file_name, style_name)
 
                 # 6. Only rename if ALL requested operations were successful
                 if style_op_success and idra_op_success:
