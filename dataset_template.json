@@ -1,0 +1,42 @@
+[
+  {
+    "KPI": "3-30-300",
+    "dataset_title": "{city} 3-30-300 {date_dmy}",
+    "description": "The 3-30-300 Rule is an urban planning guideline designed to enhance the quality of life in cities by promoting access to nature and green spaces. It consists of three key principles: 3 Trees: every person should be able to see at least 3 trees from their home, supporting visual contact with nature that can improve mental health and well-being. 30% Canopy: neighbourhoods should maintain at least 30% tree canopy cover, ensuring sufficient green coverage that contributes to cooling urban heat islands, improving air quality, and enhancing biodiversity. 300 Meters: every resident should live within 300 meters of a public green space.",
+    "keywords": ["Urban green", "Trees", "3-30-300", "Nature restoration", "{city}"],
+    "author_name": "Stijn Vranckx",
+    "author_email": "stijn.vranckx@vito.be",
+    "publisher": "URBREATH Project",
+    "theme": "ENV"
+  },
+  {
+    "KPI": "15 minutes city index",
+    "dataset_title": "{city} 15 Minutes City Index {date_dmy}",
+    "description": "Proximity index to services evaluating how easily points of interest (PoIs) can be reached on foot or by bicycle, in line with the “15-minute city” concept introduced by Carlos Moreno. The dataset is an hexagonal grid with information about the 8 categories (PoIs): groceries, education, healthcare, banks and post offices, parks, entertainment, sustenance, and shops.The input data (PoIs and road network) are from OSM.",
+    "keywords": ["15-minute city", "Urban mobility", "Accessibility", "PoI", "{city}"],
+    "author_name": "URBREATH Consortium",
+    "author_email": "info@urbreath.eu",
+    "publisher": "URBREATH Project",
+    "theme": "TRAN"
+  },
+  {
+    "KPI": "Urban Heat Islands",
+    "dataset_title": "{city} Urban Heat Islands {date_dmy}",
+    "description": "The SUHI layer assesses the UHI effect, highlighting areas that become warmer than surrounding rural areas due to human activities like urbanization and transportation. By analyzing ground temperature data, an index from 0 to 100 is generated, where higher values indicate greater UHI exposure, pinpointing critical zones.",
+    "keywords": ["UHI", "Climate adaptation", "Heat stress", "Temperature", "{city}"],
+    "author_name": "URBREATH Consortium",
+    "author_email": "info@urbreath.eu",
+    "publisher": "URBREATH Project",
+    "theme": "CLIM"
+  },
+  {
+    "KPI": "Water Infiltration Model",
+    "dataset_title": "{city} Water Infiltration Model {date_dmy}",
+    "description": "The Infiltration Model assesses stormwater infiltration capacity for various nature-based solutions (rain gardens, bioswales, urban forests, constructed wetlands, infiltration trenches, permeable pavement) compared to existing conditions. By analyzing soil properties, weather conditions, and NBS characteristics, the model generates infiltration rates (mm/hr) across the study area. It produces quantitative indicators (infiltration rates) and spatial outputs (GeoJSON grids), as well as an HTML report with visual summaries and plots to potentially support urban planning and stormwater management decisions.",
+    "keywords": ["NBS", "Infiltration rate", "Stormwater", "Nature-based solution", "{city}"],
+    "author_name": "Ettore Etenzi, Cristina Nichiforov",
+    "author_email": "e.ettenzi@exus.ai, c.nichiforov@exus.ai",
+    "publisher": "URBREATH Project",
+    "theme": "ENV"
+  }
+]

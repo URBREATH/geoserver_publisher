@@ -1,0 +1,14 @@
+.git
+.gitignore
+
+.conda
+
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+README.md
+Dockerfile
+
+.DS_Store

@@ -1,0 +1,59 @@
+[
+  {
+    "workspace": "Tallinn_3-30-300",
+    "store_name": "Tallinn-scores-3-30-300",
+    "data_path": "Tallinn/3-30-300/2025-06-25/scores-3-30-300.tif",
+    "description": "Overall 3-30-300 Scores",
+    "write_on_catalogue": true
+  },
+  {
+    "workspace": "Tallinn_3-30-300",
+    "store_name": "Tallinn-visible-tree-count",
+    "data_path": "Tallinn/3-30-300/2025-06-25/3/visible_tree_count.tif",
+    "style_name": "style_3",
+    "override_style": true,
+    "sld_path": "Tallinn/3-30-300/2025-06-25/style_3.sld",
+    "description": "Rule 3: Visible Tree Count",
+    "write_on_catalogue": true
+  },
+  {
+    "workspace": "Tallinn_3-30-300",
+    "store_name": "Tallinn-sum-in-buffer-20",
+    "data_path": "Tallinn/3-30-300/2025-06-25/30/sum_in_buffer_20.tif",
+    "style_name": "style_30",
+    "override_style": true,
+    "sld_path": "Tallinn/3-30-300/2025-06-25/style_30.sld",
+    "description": "Rule 30: Tree Cover (200m buffer)",
+    "write_on_catalogue": true
+  },
+  {
+    "workspace": "Tallinn_3-30-300",
+    "store_name": "Tallinn-sum-in-buffer-30",
+    "data_path": "Tallinn/3-30-300/2025-06-25/30/sum_in_buffer_30.tif",
+    "style_name": "style_30",
+    "override_style": false,
+    "sld_path": "Tallinn/3-30-300/2025-06-25/style_30.sld",
+    "description": "Rule 30: Tree Cover (300m buffer)",
+    "write_on_catalogue": true
+  },
+  {
+    "workspace": "Tallinn_3-30-300",
+    "store_name": "Tallinn-groen-osm",
+    "data_path": "Tallinn/3-30-300/2025-06-25/300/groen_osm.tif",
+    "style_name": "style_300",
+    "override_style": true,
+    "sld_path": "Tallinn/3-30-300/2025-06-25/style_300_distances.sld",
+    "description": "Rule 300: Distance to Green",
+    "write_on_catalogue": true
+  },
+  {
+    "workspace": "Tallinn_3-30-300",
+    "store_name": "Tallinn-groen-osm-interpolated",
+    "data_path": "Tallinn/3-30-300/2025-06-25/300/groen_osm_interpolated.tif",
+    "style_name": "style_300",
+    "override_style": false,
+    "sld_path": "Tallinn/3-30-300/2025-06-25/style_300_distances.sld",
+    "description": "Rule 300: Distance to Green (Interpolated)",
+    "write_on_catalogue": true
+  }
+]

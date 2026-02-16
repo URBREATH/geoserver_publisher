@@ -1,101 +1,130 @@
 [
-    {
-        "KPI": "3-30-300",
-        "File name": "[City name] scores-3-30-300  [dd-mm-yyyy].tif",
-        "Description": "Raster file indicating the overal score on the 3-30-300indicators, ranging from 0 to 3",
-        "Format": "geotiff",
-        "License": "CC-BY"
-    },
-    {
-        "KPI": "3-30-300",
-        
-        "File name": "[City name] Visible_tree_count  [dd-mm-yyyy].tif",
-        "Description": "Indicator for rule '3': raster file indicating per cell the number of trees visibile within a viewing distance of 200m",
-        "Format": "geotiff",
-        "License": "CC-BY"
-    },
-    {
-        "KPI": "3-30-300",
-        "File name": "[City name] sum-in_buffer_20  [dd-mm-yyyy].tif",
-        "Description": "Indiactor for rule '30': raster file indicating the percentage of tree cover within a 200 m buffer",
-        "Format": "geotiff",
-        "License": "CC-BY"
-    },
-    {
-        "KPI": "3-30-300",
-        "File name": "[City name] sum_in_buffer_30  [dd-mm-yyyy].tif",
-        "Description": "Alternative indicator for rule '30\": raster file indicating the percentage of tree cover within a 300 m buffer",
-        "Format": "geotiff",
-        "License": "CC-BY"
-    },
-    {
-        "KPI": "3-30-300",
-        "File name": "[City name] groen_osm  [dd-mm-yyyy].tif",
-        "Description": "Indicator for rule '300': raster file indicating the distance allong the street network to accessible green",
-        "Format": "geotiff",
-        "License": "CC-BY"
-    },
-    {
-        "KPI": "3-30-300",
-        "File name": "[City name] groen_osm_interpolated  [dd-mm-yyyy].tif",
-        "Description": "Indicator for rule '300': raster file indicating the distance allong the street network to accessible green, interpolated to surrounding cells for overlay with buildings",
-        "Format": "geotiff",
-        "License": "CC-BY"
-    },
-    {
-        "KPI": "3-30-300",
-        "File name": "[City name] style_3  [dd-mm-yyyy].sld",
-        "Description": "An SLD (Styled Layer Descriptor) file for styling of the '3' indicator",
-        "Format": "SLD",
-        "License": "CC-BY"
-    },
-    {
-        "KPI": "3-30-300",
-        "File name": "[City name] style_30  [dd-mm-yyyy].sld",
-        "Description": "An SLD (Styled Layer Descriptor) file for styling of the '30' indicator",
-        "Format": "SLD",
-        "License": "CC-BY"
-    },
-    {
-        "KPI": "3-30-300",
-        "File name": "[City name] style_300_distances  [dd-mm-yyyy].sld",
-        "Description": "An SLD (Styled Layer Descriptor) file for styling of the '300' indicator",
-        "Format": "SLD",
-        "License": "CC-BY"
-    },
-    {
-        "KPI": "15 minutes city index",
-        "File name": "[City name] 15 minutes city index  [dd-mm-yyyy].AAA",
-        "Description": "Proximity index to services evaluating how easily points of interest (PoIs) can be reached on foot or by bicycle, in line with the “15-minute city” concept introduced by Carlos Moreno. The dataset is an hexagonal grid with information about the 8 categories (PoIs): groceries, education, healthcare, banks and post offices, parks, entertainment, sustenance, and shops.The input data (PoIs and road network) are from OSM.",
-        "Format": "AAA",
-        "License": "CC-BY-4.0"
-    },
-    {
-        "KPI": "15 minutes city index",
-        "File name": "[City name] 15 minutes city index SLD style [dd-mm-yyyy].sld",
-        "Description": "Style  to apply at the dataset '15 minutes city index'  in SLD format (Styled Layer Descriptor)  standard OpenGIS®",
-        "Format": "SLD",
-        "License": "CC-BY-4.0"
-    },
-    {
-        "KPI": "Urban heat islands",
-        "File name": "[City name] Suhi difference from rural  [dd-mm-yyyy]",
-        "Description": "Temperature difference between urban areas and surrounding rural reference areas",
-        "Format": "GeoTiff",
-        "License": "CC-BY-4.0"
-    },
-    {
-        "KPI": "Urban heat islands",
-        "File name": "[City name] Suhi whole day  [dd-mm-yyyy]",
-        "Description": "Normalized SUHI index (range 0–1) representing heat island intensity over the full day",
-        "Format": "GeoTiff",
-        "License": "CC-BY-4.0"
-    },
-    {
-        "KPI": "Urban heat islands",
-        "File name": "[City name] Suhi whole day visual  [dd-mm-yyyy]",
-        "Description": "Three-band tif file for visualization purposes",
-        "Format": "GeoTiff",
-        "License": "CC-BY-4.0"
-    }
+  {
+    "KPI": "3-30-300",
+    "file_pattern": "scores-3-30-300.tif",
+    "dataset_title": "3-30-300 Scores",
+    "description": "Raster file indicating the overall score on the 3-30-300 indicators for {city}. Score ranges from 0 to 3.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "3-30-300",
+    "file_pattern": "visible_tree_count.tif",
+    "dataset_title": "Visible Tree Count",
+    "description": "Indicator for rule '3': raster file indicating per cell the number of trees visible within a viewing distance of 200m in {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "3-30-300",
+    "file_pattern": "sum_in_buffer_20.tif",
+    "dataset_title": "Tree Cover (200m buffer)",
+    "description": "Indicator for rule '30': raster file indicating the percentage of tree cover within a 200m buffer in {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "3-30-300",
+    "file_pattern": "sum_in_buffer_30.tif",
+    "dataset_title": "Tree Cover (300m buffer)",
+    "description": "Alternative indicator for rule '30': raster file indicating the percentage of tree cover within a 300m buffer in {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "3-30-300",
+    "file_pattern": "groen_osm.tif",
+    "dataset_title": "Distance to Green",
+    "description": "Indicator for rule '300': raster file indicating the distance along the street network to accessible green areas in {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "3-30-300",
+    "file_pattern": "groen_osm_interpolated.tif",
+    "dataset_title": "Distance to Green (Interpolated)",
+    "description": "Indicator for rule '300': interpolated distance along the street network to accessible green areas in {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "3-30-300",
+    "file_pattern": "style_3.sld",
+    "dataset_title": "Style: Rule 3",
+    "description": "SLD styling file for the '3' indicator.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "application/vnd.ogc.sld+xml"
+  },
+  {
+    "KPI": "3-30-300",
+    "file_pattern": "style_30.sld",
+    "dataset_title": "Style: Rule 30",
+    "description": "SLD styling file for the '30' indicator.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "application/vnd.ogc.sld+xml"
+  },
+  {
+    "KPI": "3-30-300",
+    "file_pattern": "style_300_distances.sld",
+    "dataset_title": "Style: Rule 300",
+    "description": "SLD styling file for the '300' indicator.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "application/vnd.ogc.sld+xml"
+  },
+  {
+    "KPI": "15 minutes city index",
+    "file_pattern": "15_minutes_city_index.shp",
+    "dataset_title": "15-Minute City Index Hexagons",
+    "description": "Hexagonal grid evaluating proximity to services (PoIs) for {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "application/x-shapefile"
+  },
+  {
+    "KPI": "15 minutes city index",
+    "file_pattern": "15_minutes_city_index_style.sld",
+    "dataset_title": "Style: 15-Minute City",
+    "description": "SLD style for the 15-minute city index dataset.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "application/vnd.ogc.sld+xml"
+  },
+  {
+    "KPI": "Urban Heat Islands",
+    "file_pattern": "Suhi_difference_from_rural.tif",
+    "dataset_title": "SUHI: Difference from Rural",
+    "description": "Temperature difference between urban areas and surrounding rural reference areas in {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "Urban Heat Islands",
+    "file_pattern": "Suhi_whole_day.tif",
+    "dataset_title": "SUHI: Whole Day Index",
+    "description": "Normalized SUHI index (0–1) representing heat island intensity over the full day in {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "Urban Heat Islands",
+    "file_pattern": "Suhi_whole_day_visual.tif",
+    "dataset_title": "SUHI: Visualization",
+    "description": "Three-band raster file for SUHI visualization purposes in {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "Water Infiltration Model",
+    "file_pattern": "Water_Infiltration_Capacity.tif",
+    "dataset_title": "Water Infiltration Capacity Map",
+    "description": "Raster map of the Water Infiltration Capacity (WIC) index for {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "image/tiff"
+  },
+  {
+    "KPI": "Water Infiltration Model",
+    "file_pattern": "Water_Infiltration_Capacity_report.pdf",
+    "dataset_title": "Report: Water Infiltration Capacity",
+    "description": "Technical report describing the methodology and results for {city}.",
+    "license": "http://creativecommons.org/licenses/by/4.0/",
+    "format": "application/pdf"
+  }
 ]
