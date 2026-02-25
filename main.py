@@ -29,11 +29,7 @@ def run_cycle(minio, geo, idra):
             continue
 
         # --- GESTIONE NUOVA STRUTTURA JSON ---
-        # Se è una lista vecchia maniera, la adattiamo (retrocompatibilità opzionale)
         if isinstance(raw_conf, list):
-             # Se arriva una lista piatta, non abbiamo il campo 'analysis' globale
-             # Potremmo saltarla o gestirla come 'generic'. 
-             # Per ora assumiamo arrivi la nuova struttura dict.
              logger.warning(f"Legacy list format detected for {config_key}. Expecting dict with 'analysis' and 'data'.")
              analysis_topic = "Generic Import"
              layers_config = raw_conf
@@ -74,61 +70,68 @@ def run_cycle(minio, geo, idra):
             data_path = conf.get('data_path')
             write_catalogue = conf.get('write_on_catalogue', False)
             
-            if not workspace or not store_name or not data_path:
-                conf['error_log'] = "Missing mandatory fields"
+            if not data_path:
+                conf['error_log'] = "Missing data_path"
                 failure_items.append(conf)
                 continue
 
-            # Check Locali e GeoServer
-            if not geo.ensure_workspace(workspace):
-                conf['error_log'] = "Workspace error"
-                failure_items.append(conf)
-                continue
-
-            local_data = os.path.join(TARGET_DIR, data_path)
-            if not os.path.exists(local_data):
-                conf['error_log'] = f"File missing: {local_data}"
-                failure_items.append(conf)
-                continue
-
-            # Pubblicazione GeoServer
-            published = False
-            is_geo = False
-            layer_name = store_name # Default
+            # Determiniamo SUBITO se il file è geografico in base all'estensione
+            is_geo = data_path.lower().endswith(('.shp', '.geojson', '.tif', '.tiff'))
             
-            try:
-                if data_path.endswith('.shp') or data_path.endswith('.geojson'):
-                    is_geo = True
-                    published = geo.publish_datastore(workspace, store_name, local_data)
-                    if data_path.endswith('.shp'):
-                        layer_name = os.path.splitext(os.path.basename(data_path))[0]
-                elif data_path.endswith(('.tif', '.tiff')):
-                    is_geo = True
-                    published = geo.publish_coveragestore(workspace, store_name, local_data)
-                else:
-                    published = True # Non-geo file
-            except Exception as e:
-                conf['error_log'] = str(e)
-                failure_items.append(conf)
-                continue
+            # Se è un file non geografico (es. PDF), possiamo usare un nome generico se manca store_name
+            layer_name = store_name or "raw_file"
+            
+            # --- LOGICA PER FILE GEOGRAFICI ---
+            if is_geo:
+                if not workspace or not store_name:
+                    conf['error_log'] = "Missing workspace or store_name for geo file"
+                    failure_items.append(conf)
+                    continue
 
-            if not published:
-                conf['error_log'] = "GeoServer publish failed"
-                failure_items.append(conf)
-                continue
+                # Check Locali e GeoServer
+                if not geo.ensure_workspace(workspace):
+                    conf['error_log'] = "Workspace error"
+                    failure_items.append(conf)
+                    continue
 
-            # Gestione Stili
-            style_name = conf.get('style_name')
-            sld_path = conf.get('sld_path')
-            if is_geo and style_name and sld_path:
-                local_sld = os.path.join(TARGET_DIR, sld_path)
-                if os.path.exists(local_sld):
-                    with open(local_sld, 'r') as f: sld_body = f.read()
-                    geo.handle_style(workspace, style_name, sld_body, conf.get('override_style', False))
-                    geo.assign_style(workspace, layer_name, style_name)
+                local_data = os.path.join(TARGET_DIR, data_path)
+                if not os.path.exists(local_data):
+                    conf['error_log'] = f"File missing: {local_data}"
+                    failure_items.append(conf)
+                    continue
 
-            # Raccogliamo i dati per IDRA
+                # Pubblicazione GeoServer
+                published = False
+                try:
+                    if data_path.endswith('.shp') or data_path.endswith('.geojson'):
+                        published = geo.publish_datastore(workspace, store_name, local_data)
+                        if data_path.endswith('.shp'):
+                            layer_name = os.path.splitext(os.path.basename(data_path))[0]
+                    elif data_path.endswith(('.tif', '.tiff')):
+                        published = geo.publish_coveragestore(workspace, store_name, local_data)
+                except Exception as e:
+                    conf['error_log'] = str(e)
+                    failure_items.append(conf)
+                    continue
+
+                if not published:
+                    conf['error_log'] = "GeoServer publish failed"
+                    failure_items.append(conf)
+                    continue
+
+                # Gestione Stili
+                style_name = conf.get('style_name')
+                sld_path = conf.get('sld_path')
+                if style_name and sld_path:
+                    local_sld = os.path.join(TARGET_DIR, sld_path)
+                    if os.path.exists(local_sld):
+                        with open(local_sld, 'r') as f: sld_body = f.read()
+                        geo.handle_style(workspace, style_name, sld_body, conf.get('override_style', False))
+                        geo.assign_style(workspace, layer_name, style_name)
+
+            # --- RACCOLTA DATI PER IDRA (Per tutti i file) ---
             if write_catalogue:
+                # Se è geo prendiamo la BBOX, altrimenti diamo i limiti del mondo
                 bbox = geo.get_layer_bbox(workspace, layer_name) if is_geo else "-180,-90,180,90"
                 
                 # Aggiungiamo alla lista del "Bundle"
@@ -136,10 +139,11 @@ def run_cycle(minio, geo, idra):
                     "workspace": workspace,
                     "layer_name": layer_name,
                     "data_path": data_path,
-                    "sld_path": sld_path,
-                    "style_name": style_name,
+                    "sld_path": conf.get('sld_path'),
+                    "style_name": conf.get('style_name'),
                     "bbox": bbox,
-                    "is_geo": is_geo
+                    "is_geo": is_geo,
+                    "custom_desc": conf.get('description') # Passiamo la custom description al JSON
                 })
 
             success_items.append(conf)
@@ -151,8 +155,6 @@ def run_cycle(minio, geo, idra):
                 idra.publish_bundle(analysis_topic, city, date_val, resources_to_publish)
             except Exception as e:
                 logger.error(f"IDRA Bundle Error: {e}")
-                # Nota: qui potremmo decidere se segnare tutto come fallito o solo loggare.
-                # Per ora consideriamo i file "processati" (GeoServer ok) ma IDRA ko.
 
         # 3. Finalizzazione JSON
         if success_items:

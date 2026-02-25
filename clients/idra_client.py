@@ -27,7 +27,7 @@ class IdraClient:
             return []
 
     def _match_distribution(self, filename):
-        """FUZZY MATCHING (Logica a token come richiesto prima)"""
+        """FUZZY MATCHING (Logica a token)"""
         if not filename: return None, {}
         
         filename_tokens = set(re.split(r'[_\-\.]+', filename.lower()))
@@ -87,11 +87,6 @@ class IdraClient:
     def publish_bundle(self, analysis_topic, city, date_val, resources_list):
         """
         Pubblica UN dataset per l'analisi indicata e N distribuzioni (una per ogni file).
-        
-        :param analysis_topic: Stringa 'analysis' dal JSON (es. "urban heat islands")
-        :param city: Nome città (dal path)
-        :param date_val: Data formattata YYYY-MM-DD
-        :param resources_list: Lista di dizionari con i dettagli dei layer processati
         """
         if not self.enabled: return True
         
@@ -138,12 +133,13 @@ class IdraClient:
 
         for res in resources_list:
             data_path = res['data_path']
-            layer_name = res['layer_name'] # Store name su GeoServer
+            layer_name = res['layer_name'] 
             workspace = res['workspace']
             sld_path = res.get('sld_path')
             style_name = res.get('style_name')
             bbox = res.get('bbox')
             is_geo = res.get('is_geo', True)
+            custom_desc = res.get('custom_desc') # <--- Recuperato dal main.py
             
             filename = os.path.basename(data_path)
             
@@ -154,12 +150,18 @@ class IdraClient:
             def add_single_dist(suffix, url, fmt, title_suffix=""):
                 dist_id = f"{dataset_unique_id}_{layer_name}_{suffix}"
                 
-                # Titolo della distribuzione
-                d_title = dist_tmpl.get('dataset_title', filename) if dist_tmpl else filename
-                if title_suffix: d_title += f" ({title_suffix})"
+                # Logica Titolo: Template -> Custom Desc (dal JSON) -> Nome File
+                d_title = custom_desc if custom_desc else filename
+                if dist_tmpl and 'dataset_title' in dist_tmpl:
+                    d_title = dist_tmpl['dataset_title']
                 
-                # Descrizione della distribuzione
-                d_desc = dist_tmpl.get('description', '').format(**context) if dist_tmpl else final_dataset_desc
+                if title_suffix: 
+                    d_title += f" ({title_suffix})"
+                
+                # Logica Descrizione: Template -> Custom Desc -> Descrizione Globale
+                d_desc = custom_desc if custom_desc else final_dataset_desc
+                if dist_tmpl and 'description' in dist_tmpl:
+                    d_desc = dist_tmpl['description'].format(**context)
 
                 body = {
                     "id": dist_id,
@@ -199,14 +201,14 @@ class IdraClient:
                 add_single_dist("wms", wms_url, "image/png", "WMS Visualization")
 
         # 4. Pubblicazione Dataset (collegando tutte le distribution ID)
-        dataset_full_id = f"{city}:{dataset_unique_id}" # IDRA richiede spesso un prefix
+        dataset_full_id = f"{city}:{dataset_unique_id}" 
         
         ds_body = {
             "id": dataset_full_id,
             "title": final_dataset_title,
             "description": final_dataset_desc,
             "datasetDescription": [final_dataset_desc],
-            "datasetDistribution": dist_ids, # QUI colleghiamo tutte le 6 (o N) distribuzioni
+            "datasetDistribution": dist_ids, 
             "spatial": resources_list[0].get('bbox', "-180,-90,180,90") if resources_list else "",
             "temporal": date_val, 
             "keyword": keywords,
