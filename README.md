@@ -33,6 +33,14 @@ The JSON must contain an `analysis` name (used to group datasets in IDRA) and a 
 | `sld_path` | No | Relative path to the `.sld` style file in MinIO. |
 | `override_style` | No | Set to `true` to overwrite an existing style in GeoServer. |
 
+### Recommended Folder Structure
+To keep your data organized and ensure the system correctly extracts metadata (like the city name and the date), we highly recommend using the following folder structure for your `data_path`:
+
+`City/Analysis_Topic/Timestamp-City-AnalysisType/filename.ext`
+
+**Real Example (Cluj-Napoca):**
+`Cluj-Napoca/Urban heat islands/20220500T000000-ClujNapoca-suhi-sentinel-s2/20220500T000000_ClujNapoca_suhi_sentinel_s2__diff_from_rural.tif`
+
 ---
 
 ### Real Use-Case Examples
@@ -45,13 +53,13 @@ This is the standard use case for geographic maps. The tool will upload the TIF 
   "analysis": "Urban Heat Islands",
   "data": [
     {
-      "workspace": "climate_workspace",
-      "store_name": "heat_map_2023",
-      "data_path": "climate/heat_map_2023.tif",
+      "workspace": "ClujNapoca_Urban_heat_islands",
+      "store_name": "ClujNapoca-suhi-diff-from-rural",
+      "data_path": "Cluj-Napoca/Urban heat islands/20220500T000000-ClujNapoca-suhi-sentinel-s2/20220500T000000_diff_from_rural.tif",
       "style_name": "heat_style",
-      "sld_path": "styles/heat_colors.sld",
+      "sld_path": "Cluj-Napoca/styles/heat_colors.sld",
       "write_on_catalogue": true,
-      "description": "Urban Heat Island Raster Map"
+      "description": "Urban Heat Island Raster Map - Difference from Rural"
     }
   ]
 }
@@ -67,7 +75,7 @@ If you only need the layer in GeoServer for internal use and don't want it on th
     {
       "workspace": "infrastructure",
       "store_name": "roads_network",
-      "data_path": "vector/roads_network.shp",
+      "data_path": "Milano/Infrastructure/20240101-Milano-Roads/roads_network.shp",
       "write_on_catalogue": false
     }
   ]
@@ -82,7 +90,7 @@ If you only need the layer in GeoServer for internal use and don't want it on th
   "analysis": "Water Infiltration",
   "data": [
     {
-      "data_path": "reports/water_analysis_report.pdf",
+      "data_path": "Roma/Water Infiltration/20231015-Roma-Water/water_analysis_report.pdf",
       "write_on_catalogue": true,
       "description": "Final Technical Report for Water Infiltration"
     }
@@ -100,11 +108,11 @@ Group multiple files into a single "Bundle" under the same IDRA Dataset.
     {
       "workspace": "green_areas",
       "store_name": "tree_coverage",
-      "data_path": "green/tree_coverage.tif",
+      "data_path": "Torino/3-30-300/20240220-Torino-Trees/tree_coverage.tif",
       "write_on_catalogue": true
     },
     {
-      "data_path": "green/methodology.pdf",
+      "data_path": "Torino/3-30-300/20240220-Torino-Trees/methodology.pdf",
       "write_on_catalogue": true,
       "description": "Methodology Document"
     }
