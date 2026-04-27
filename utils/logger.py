@@ -1,11 +1,12 @@
 import logging
+import sys
 
-def setup_logger():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        force=True
-    )
-    return logging.getLogger(__name__)
+# Single, shared logger for the whole application.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+    stream=sys.stdout,
+    force=True,
+)
 
-logger = setup_logger()
+logger = logging.getLogger("publisher")

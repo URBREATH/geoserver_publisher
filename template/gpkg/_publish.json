@@ -1,0 +1,12 @@
+{
+  "analysis": "My Analysis",
+  "data": [
+    {
+      "workspace": "my_workspace",
+      "store_name": "my_gpkg_store",
+      "data_path": "City/Topic/20240101-City-Topic/layers.gpkg",
+      "write_on_catalogue": true,
+      "description": "GeoPackage containing multiple layers. All feature tables will be published automatically."
+    }
+  ]
+}

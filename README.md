@@ -3,118 +3,126 @@
 Provided by: ENG
 
 ## Description
-This tool is an automated service designed to bridge a **MinIO** object storage system with **GeoServer** and the **IDRA Data Catalogue**. 
+Automated service that bridges **MinIO** with **GeoServer** and the **IDRA Data Catalogue**.
 
-It continuously monitors a MinIO bucket for trigger files (`_publish.json`). When a request is detected, the service automatically publishes the specified datasets to GeoServer (via REST API) and to the IDRA Catalogue, applying styles and creating download links without any manual intervention.
+The service continuously scans a MinIO bucket for trigger files (`_publish.json`). When a request is detected, it publishes the specified datasets to GeoServer (via REST API) and to the IDRA Catalogue, handles SLD styles, and creates the corresponding distribution links — all without any manual intervention.
 
 ---
 
-## How to Publish Data (Usage Guide)
+## Supported file types
 
-Using the publisher is incredibly simple. You do not need to interact with GeoServer or IDRA directly. You only need to upload your data to MinIO and provide a simple JSON instruction file.
+| Extension | GeoServer target | Notes |
+|---|---|---|
+| `.shp` | DataStore | Publisher zips the `.shp` together with its sidecar files (`.shx`, `.dbf`, `.prj`, `.cpg`, `.qpj`, `.sbn/.sbx`, `.fix`, `.shp.xml`) and uploads as `application/zip`. Layer name = filename stem. |
+| `.geojson` | DataStore | Uploaded as `application/json` via the `file.geojson` endpoint. Layer name = filename stem. |
+| `.tif` / `.tiff` | CoverageStore | Uploaded as `image/tiff`. Layer name = `store_name`. |
+| `.gpkg` | DataStore | Uses `configure=all` — **every** feature table inside the GeoPackage becomes a layer. Layer names are derived from the feature table names and are queried back from GeoServer after upload. |
+| anything else (e.g. `.pdf`) | — | Skipped on GeoServer; still published to IDRA as a raw downloadable resource when `write_on_catalogue=true`. |
 
-**Step 1:** Upload your data files (e.g., `.tif`, `.shp`, `.pdf`, `.sld`) to your MinIO bucket.
-**Step 2:** In the same MinIO folder, upload a file named exactly `_publish.json` containing your publishing instructions.
+---
 
-The service will detect the `_publish.json`, process the files, and automatically rename the file to `_published.json` once done.
+## How to publish data
 
-### The `_publish.json` Structure
+**Step 1:** Upload your data files (e.g. `.tif`, `.shp`, `.gpkg`, `.pdf`, `.sld`) to the MinIO bucket.
+**Step 2:** Upload a file named exactly `_publish.json` in the same folder, containing the publishing instructions.
 
-The JSON must contain an `analysis` name (used to group datasets in IDRA) and a `data` array listing the files you want to publish.
+The service will detect the `_publish.json`, process the files, and rename the trigger to `_published.json` on success. Errors are written to `_failures.json`; malformed JSON is moved aside to `_corrupted.json` to break infinite retry loops.
+
+### `_publish.json` structure
 
 | Field | Required | Description |
 |---|---|---|
-| `data_path` | **Yes** | Relative path to the file inside the MinIO bucket. |
-| `workspace` | *Yes (for Geo)* | Target GeoServer workspace (required for .shp, .tif). |
-| `store_name` | *Yes (for Geo)* | Desired name for the GeoServer DataStore/CoverageStore. |
-| `write_on_catalogue`| No | Set to `true` to publish this file to the IDRA Catalogue. |
-| `description` | No | Custom description for the file (highly recommended for PDFs). |
-| `style_name` | No | Name of the style in GeoServer. |
-| `sld_path` | No | Relative path to the `.sld` style file in MinIO. |
-| `override_style` | No | Set to `true` to overwrite an existing style in GeoServer. |
+| `data_path` | **yes** | Relative path to the file inside the MinIO bucket. |
+| `workspace` | *yes (geo)* | GeoServer workspace (required for `.shp`, `.geojson`, `.tif`, `.gpkg`). |
+| `store_name` | *yes (geo)* | Name of the GeoServer store to create or update. |
+| `write_on_catalogue` | no | `true` to push this file to IDRA. |
+| `description` | no | Custom description (recommended for non-geographic files such as PDFs). |
+| `style_name` | no | Name of the SLD style in GeoServer. |
+| `sld_path` | no | Relative path to the `.sld` file in MinIO. |
+| `override_style` | no | `true` to overwrite an existing SLD in GeoServer. |
 
-### Recommended Folder Structure
-To keep your data organized and ensure the system correctly extracts metadata (like the city name and the date), we highly recommend using the following folder structure for your `data_path`:
+### Recommended folder layout
 
 `City/Analysis_Topic/Timestamp-City-AnalysisType/filename.ext`
 
-**Real Example (Cluj-Napoca):**
+Example:
 `Cluj-Napoca/Urban heat islands/20220500T000000-ClujNapoca-suhi-sentinel-s2/20220500T000000_ClujNapoca_suhi_sentinel_s2__diff_from_rural.tif`
 
 ---
 
-### Real Use-Case Examples
+### Examples
 
-#### 1. Publish a GeoTIFF with SLD Style (GeoServer + IDRA)
-This is the standard use case for geographic maps. The tool will upload the TIF to GeoServer, upload and apply the SLD style, and create a dataset in IDRA with WMS and download links.
-
+#### 1. GeoTIFF with SLD (GeoServer + IDRA)
 ```json
 {
   "analysis": "Urban Heat Islands",
-  "data": [
-    {
-      "workspace": "ClujNapoca_Urban_heat_islands",
-      "store_name": "ClujNapoca-suhi-diff-from-rural",
-      "data_path": "Cluj-Napoca/Urban heat islands/20220500T000000-ClujNapoca-suhi-sentinel-s2/20220500T000000_diff_from_rural.tif",
-      "style_name": "heat_style",
-      "sld_path": "Cluj-Napoca/styles/heat_colors.sld",
-      "write_on_catalogue": true,
-      "description": "Urban Heat Island Raster Map - Difference from Rural"
-    }
-  ]
+  "data": [{
+    "workspace":   "ClujNapoca_Urban_heat_islands",
+    "store_name":  "ClujNapoca-suhi-diff-from-rural",
+    "data_path":   "Cluj-Napoca/Urban heat islands/.../diff_from_rural.tif",
+    "style_name":  "heat_style",
+    "sld_path":    "Cluj-Napoca/styles/heat_colors.sld",
+    "write_on_catalogue": true,
+    "description": "Urban Heat Island raster — difference from rural."
+  }]
 }
 ```
 
-#### 2. Publish a Shapefile to GeoServer ONLY (No IDRA)
-If you only need the layer in GeoServer for internal use and don't want it on the public open data catalogue.
-
+#### 2. Shapefile — GeoServer only
 ```json
 {
   "analysis": "City Infrastructure",
-  "data": [
-    {
-      "workspace": "infrastructure",
-      "store_name": "roads_network",
-      "data_path": "Milano/Infrastructure/20240101-Milano-Roads/roads_network.shp",
-      "write_on_catalogue": false
-    }
-  ]
+  "data": [{
+    "workspace":  "infrastructure",
+    "store_name": "roads_network",
+    "data_path":  "Milano/Infrastructure/20240101-Milano-Roads/roads_network.shp",
+    "write_on_catalogue": false
+  }]
 }
 ```
 
-#### 3. Publish a Non-Geographical File (e.g., PDF) to IDRA ONLY
-*Note: GeoServer does not support PDFs. The tool is smart enough to skip GeoServer entirely and push the PDF directly to IDRA as a downloadable resource.*
+#### 3. Multi-layer GeoPackage (auto-discovery of layers)
+```json
+{
+  "analysis": "Green Inventory",
+  "data": [{
+    "workspace":  "green_areas",
+    "store_name": "tallinn_green_2025",
+    "data_path":  "Tallinn/3-30-300/2025-11-21/green_inventory.gpkg",
+    "write_on_catalogue": true,
+    "description": "Multi-layer green inventory for Tallinn."
+  }]
+}
+```
+All feature tables inside the GPKG are published automatically, each becoming a separate IDRA distribution.
 
+#### 4. PDF — IDRA only (GeoServer is skipped)
 ```json
 {
   "analysis": "Water Infiltration",
-  "data": [
-    {
-      "data_path": "Roma/Water Infiltration/20231015-Roma-Water/water_analysis_report.pdf",
-      "write_on_catalogue": true,
-      "description": "Final Technical Report for Water Infiltration"
-    }
-  ]
+  "data": [{
+    "data_path":  "Roma/Water Infiltration/20231015-Roma-Water/water_analysis_report.pdf",
+    "write_on_catalogue": true,
+    "description": "Final technical report on water infiltration."
+  }]
 }
 ```
 
-#### 4. Publish a Mixed Bundle (Geodata + PDF)
-Group multiple files into a single "Bundle" under the same IDRA Dataset.
-
+#### 5. Mixed bundle (geo + PDF under the same dataset)
 ```json
 {
   "analysis": "3-30-300 Rule",
   "data": [
     {
-      "workspace": "green_areas",
+      "workspace":  "green_areas",
       "store_name": "tree_coverage",
-      "data_path": "Torino/3-30-300/20240220-Torino-Trees/tree_coverage.tif",
+      "data_path":  "Torino/3-30-300/20240220-Torino-Trees/tree_coverage.tif",
       "write_on_catalogue": true
     },
     {
-      "data_path": "Torino/3-30-300/20240220-Torino-Trees/methodology.pdf",
+      "data_path":  "Torino/3-30-300/20240220-Torino-Trees/methodology.pdf",
       "write_on_catalogue": true,
-      "description": "Methodology Document"
+      "description": "Methodology document."
     }
   ]
 }
@@ -122,42 +130,31 @@ Group multiple files into a single "Bundle" under the same IDRA Dataset.
 
 ---
 
-## Deployment & Installation
+## Deployment
 
-The service is designed to run as a persistent background process, ideally within a Docker container.
+Designed to run as a long-lived container (see `Dockerfile`). This service does **not** download files from MinIO — it assumes the bucket is mirrored to `TARGET_DIR` by a sibling process such as:
 
-### Prerequisites
-1. **GeoServer & MinIO**: Both must be running and accessible over the network.
-2. **Local Data Directory (`TARGET_DIR`)**: A local folder inside the container where MinIO files are synchronized.
-3. **Data Synchronization Tool**: This service does *not* download files from MinIO. You must run a separate background process (like `mc mirror --watch minio/geodata /data`) to continuously sync the MinIO bucket to the container's `TARGET_DIR`.
+```
+mc mirror --watch minio/geodata /data
+```
 
-### Environment Variables
+### Environment variables
 
-Configure the tool using the following environment variables (e.g., in your `docker-compose.yml`):
-
-| Variable | Description | Default / Example |
+| Variable | Description | Default |
 |---|---|---|
-| `TARGET_DIR` | Local mount point where MinIO data is synced. | `/data` |
-| `GEOSERVER_URL` | Internal URL of GeoServer for API uploads. | `http://geoserver:8080/geoserver` |
-| `GEOSERVER_USER` | Admin username for GeoServer. | `admin` |
-| `GEOSERVER_PASSWORD`| Admin password for GeoServer. | `geoserver` |
-| `MINIO_ENDPOINT` | MinIO server address and port. | `minio:9000` |
-| `MINIO_ACCESS_KEY` | MinIO access key. | `minioadmin` |
-| `MINIO_SECRET_KEY` | MinIO secret key. | `minioadmin` |
-| `MINIO_BUCKET` | The MinIO bucket to monitor. | `geodata` |
-| `MINIO_PROXY_URL` | Public URL for MinIO file downloads (used by IDRA). | `http://localhost:9090` |
-| `IDRA_URL` | Base URL of the IDRA Catalogue API. | `http://idra:8080/idra` |
-| `PUBLISH_INTERVAL_SECONDS`| Scan interval for new trigger files. | `30` |
+| `TARGET_DIR` | Local mount point where MinIO data is mirrored. | `/data` |
+| `GEOSERVER_URL` | Internal URL of GeoServer for REST uploads. | `http://geoserver:8080/geoserver` |
+| `GEOSERVER_PUBLIC_URL` | Public URL of GeoServer (used by IDRA for WMS links). | same as `GEOSERVER_URL` |
+| `GEOSERVER_USER` / `GEOSERVER_PASSWORD` | Admin credentials. | `admin` / `geoserver` |
+| `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, `MINIO_SECURE` | MinIO connection. | `minio:9000`, `minioadmin`, `minioadmin`, `geodata`, `false` |
+| `MINIO_PROXY_URL` | Public MinIO URL (used in IDRA download links). | `http://localhost:9090` |
+| `IDRA_URL` | IDRA Catalogue base URL. Leave empty to disable IDRA. | *(empty)* |
+| `PUBLISH_INTERVAL_SECONDS` | Scan interval. | `30` |
+| `REQUEST_TIMEOUT` | HTTP timeout for every outbound call (seconds). | `120` |
 
 ---
 
-## Technical Details & Built Image
-
-- **Registry URL**: `https://registry.urbreath.tech`
-- **Image Name**: `geoserver-publisher`
-- **Version**: `2.2.2`
-
-### External Resources
-- **GeoServer REST API**: [https://docs.geoserver.org/stable/en/user/rest/index.html](https://docs.geoserver.org/stable/en/user/rest/index.html)
-- **MinIO Python Client**: [https://min.io/docs/minio/linux/developers/python/API.html](https://min.io/docs/minio/linux/developers/python/API.html)
-- **IDRA Repository**: [https://github.com/Engineering-Research-and-Development/idra](https://github.com/Engineering-Research-and-Development/idra)
+## External references
+- [GeoServer REST API](https://docs.geoserver.org/stable/en/user/rest/index.html)
+- [MinIO Python SDK](https://min.io/docs/minio/linux/developers/python/API.html)
+- [IDRA](https://github.com/Engineering-Research-and-Development/idra)
