@@ -17,6 +17,7 @@ class GeoServerClient:
         # Headers for binary file uploads
         self.headers_zip = {"Content-type": "application/zip"}
         self.headers_tiff = {"Content-type": "image/tiff"}
+        self.headers_gpkg = {"Content-type": "application/x-geopackage+sqlite3"}
 
     def ensure_workspace(self, workspace):
         url = f"{self.base_url}/workspaces/{workspace}"
@@ -46,7 +47,7 @@ class GeoServerClient:
         mem_zip = io.BytesIO()
         
         try:
-            with zipfile.ZipFile(mem_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+            with zipfile.ZipFile(mem_zip, 'w', zipfile.DEFLATED) as zf:
                 # Possible extensions for a shapefile
                 extensions = ['.shp', '.shx', '.dbf', '.prj', '.cpg', '.qpj']
                 found_files = 0
@@ -126,6 +127,35 @@ class GeoServerClient:
             
         except Exception as e:
             logger.error(f"Exception Uploading GeoTIFF: {e}")
+            return False
+
+    def publish_geopackage(self, workspace, store_name, local_path):
+        """
+        Publishes a GeoPackage via DIRECT UPLOAD (PUT of the stream).
+        It does not require GeoServer to see the local file system.
+        """
+        # Endpoint for geopackage upload
+        url = f"{self.base_url}/workspaces/{workspace}/datastores/{store_name}/file.gpkg?configure=first"
+        
+        try:
+            logger.info(f"Uploading GeoPackage (stream) for store '{store_name}' from {local_path}...")
+            
+            # Open in binary streaming
+            with open(local_path, 'rb') as f:
+                resp = requests.put(url, data=f, auth=self.auth, headers=self.headers_gpkg)
+            
+            if resp.status_code in [200, 201]:
+                return True
+
+            if resp.status_code == 500 and "already exists" in resp.text:
+                 logger.warning(f"DataStore '{store_name}' seems to already exist (500).")
+                 return True
+
+            logger.error(f"Error Uploading GeoPackage: {resp.status_code} - {resp.text}")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Exception Uploading GeoPackage: {e}")
             return False
 
     def handle_style(self, workspace, style_name, sld_body, override=False):

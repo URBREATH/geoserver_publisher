@@ -76,7 +76,7 @@ def run_cycle(minio, geo, idra):
                 continue
 
             # Determiniamo SUBITO se il file è geografico in base all'estensione
-            is_geo = data_path.lower().endswith(('.shp', '.geojson', '.tif', '.tiff'))
+            is_geo = data_path.lower().endswith(('.shp', '.geojson', '.tif', '.tiff', '.gpkg'))
             
             # Se è un file non geografico (es. PDF), possiamo usare un nome generico se manca store_name
             layer_name = store_name or "raw_file"
@@ -109,6 +109,8 @@ def run_cycle(minio, geo, idra):
                             layer_name = os.path.splitext(os.path.basename(data_path))[0]
                     elif data_path.endswith(('.tif', '.tiff')):
                         published = geo.publish_coveragestore(workspace, store_name, local_data)
+                    elif data_path.endswith('.gpkg'):
+                        published = geo.publish_geopackage(workspace, store_name, local_data)
                 except Exception as e:
                     conf['error_log'] = str(e)
                     failure_items.append(conf)
